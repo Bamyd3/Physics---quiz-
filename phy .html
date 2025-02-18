@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Quiz with Leaderboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        .question {
+            text-align: left;
+            margin: 15px 0;
+        }
+        .correct { color: green; font-weight: bold; }
+        .wrong { color: red; font-weight: bold; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #0056b3; }
+        #timer { font-size: 18px; font-weight: bold; color: red; }
+        .history { margin-top: 20px; font-size: 14px; color: #555; }
+        #leaderboard ul { list-style-type: none; padding: 0; max-height: 300px; overflow-y: auto; }
+        #leaderboard li { background: #eee; margin: 5px 0; padding: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Physics Quiz</h2>
+        <label for="username">Enter your name:</label>
+        <input type="text" id="username" placeholder="Your Name" required>
+        <button id="startQuiz">Start Quiz</button>
+        <p id="timer">Time Left: 60s</p>
+        <form id="quizForm" style="display: none;">
+            <div id="quizContainer"></div>
+            <button type="submit">Submit Quiz</button>
+        </form>
+        <div id="resultContainer"></div>
+        <button id="restartQuiz" style="display: none;">Start Again</button>
+        <div class="history">
+            <h3>Leaderboard (Top 50)</h3>
+            <ul id="leaderboard"></ul>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const startButton = document.getElementById("startQuiz");
+            const restartButton = document.getElementById("restartQuiz");
+            const usernameInput = document.getElementById("username");
+            const quizContainer = document.getElementById("quizContainer");
+            const quizForm = document.getElementById("quizForm");
+            const resultContainer = document.getElementById("resultContainer");
+            const leaderboardContainer = document.getElementById("leaderboard");
+            const timerDisplay = document.getElementById("timer");
+
+            let timeLeft = 60;
+            let timer;
+            let currentUser = "";
+
+            // Quiz Questions
+            const questions = [
+                {
+                    question: "What is the acceleration due to gravity on Earth?",
+                    options: ["9.8 m/s²", "8.9 m/s²", "10.5 m/s²", "7.8 m/s²"],
+                    answer: "9.8 m/s²"
+                },
+                {
+                    question: "Which of the following is a unit of force?",
+                    options: ["Joule", "Newton", "Watt", "Pascal"],
+                    answer: "Newton"
+                },
+                {
+                    question: "Which law states that 'For every action, there is an equal and opposite reaction'?",
+                    options: ["Newton's First Law", "Newton's Second Law", "Newton's Third Law", "Law of Conservation of Energy"],
+                    answer: "Newton's Third Law"
+                }
+            ];
+
+            function loadQuiz() {
+                quizContainer.innerHTML = "";
+                questions.forEach((q, index) => {
+                    let questionHTML = `<div class="question">
+                        <p><strong>${index + 1}. ${q.question}</strong></p>`;
+                    
+                    q.options.forEach(option => {
+                        questionHTML += `
+                            <label>
+                                <input type="radio" name="question${index}" value="${option}" required> ${option}
+                            </label><br>`;
+                    });
+
+                    questionHTML += `</div>`;
+                    quizContainer.innerHTML += questionHTML;
+                });
+
+                startTimer();
+            }
+
+            function startTimer() {
+                timeLeft = 60;
+                timerDisplay.textContent = `Time Left: ${timeLeft}s`;
+                timer = setInterval(() => {
+                    timeLeft--;
+                    timerDisplay.textContent = `Time Left: ${timeLeft}s`;
+
+                    if (timeLeft <= 0) {
+                        clearInterval(timer);
+                        submitQuiz();
+                    }
+                }, 1000);
+            }
+
+            function submitQuiz() {
+                clearInterval(timer);
+                let score = 0;
+                let totalQuestions = questions.length;
+                let feedbackHTML = `<h3>Quiz Results for ${currentUser}</h3>`;
+
+                questions.forEach((q, index) => {
+                    const selectedOption = document.querySelector(`input[name="question${index}"]:checked`);
+                    if (selectedOption) {
+                        if (selectedOption.value === q.answer) {
+                            score++;
+                            feedbackHTML += `<p class="correct">${index + 1}. ✅ Correct! (${q.answer})</p>`;
+                        } else {
+                            feedbackHTML += `<p class="wrong">${index + 1}. ❌ Wrong! (Correct Answer: ${q.answer})</p>`;
+                        }
+                    }
+                });
+
+                feedbackHTML += `<h4>Your Score: ${score} / ${totalQuestions}</h4>`;
+                resultContainer.innerHTML = feedbackHTML;
+
+                saveScore(currentUser, score, totalQuestions);
+            }
+
+            function saveScore(name, score, totalQuestions) {
+                let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+                const newEntry = { name, score, total: totalQuestions, date: new Date().toLocaleString() };
+                leaderboard.push(newEntry);
+                leaderboard.sort((a, b) => b.score - a.score);
+                leaderboard = leaderboard.slice(0, 50); // Keep top 50 scores
+                localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+                displayLeaderboard();
+            }
+
+            function displayLeaderboard() {
+                let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+                leaderboardContainer.innerHTML = "";
+                leaderboard.forEach((entry, index) => {
+                    const scoreItem = document.createElement("li");
+                    scoreItem.textContent = `${index + 1}. ${entry.name}: ${entry.score}/${entry.total} on ${entry.date}`;
+                    leaderboardContainer.appendChild(scoreItem);
+                });
+            }
+
+            startButton.addEventListener("click", function () {
+                currentUser = usernameInput.value.trim();
+                if (currentUser === "") {
+                    alert("Please enter your name.");
+                    return;
+                }
+                startButton.style.display = "none";
+                usernameInput.style.display = "none";
+                quizForm.style.display = "block";
+                resultContainer.innerHTML = "";
+                restartButton.style.display = "none";
+                loadQuiz();
+            });
+
+            quizForm.addEventListener("submit", function (event) {
+                event.preventDefault();
+                submitQuiz();
+                restartButton.style.display = "block";
+            });
+
+            restartButton.addEventListener("click", function () {
+                location.reload();
+            });
+
+            displayLeaderboard();
+        });
+    </script>
+</body>
+</html>
